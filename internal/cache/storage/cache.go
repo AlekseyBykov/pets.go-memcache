@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"github.com/AlekseyBykov/pets.go-memcache/internal/cache/validation"
 	"github.com/AlekseyBykov/pets.go-memcache/internal/utils"
 	"sync"
@@ -79,4 +80,32 @@ func (c *Cache) Delete(key string) error {
 	delete(c.storage, key)
 
 	return nil
+}
+
+func (c *Cache) StartJanitor(stop <-chan struct{}) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Printf("[Janitor] Running cleanup...")
+			c.cleanupExpiredItems()
+		case <-stop:
+			fmt.Printf("[Janitor] Stopping janitor")
+			return
+		}
+	}
+}
+
+func (c *Cache) cleanupExpiredItems() {
+	c.sync.Lock()
+	defer c.sync.Unlock()
+
+	for key, item := range c.storage {
+		if item.IsExpired() {
+			fmt.Printf("[Janitor] Removing expired key: %s\n", key)
+			delete(c.storage, key)
+		}
+	}
 }

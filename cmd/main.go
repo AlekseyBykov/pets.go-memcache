@@ -53,4 +53,29 @@ func main() {
 	} else {
 		fmt.Printf("Found key2: %v\n", val)
 	}
+
+	stop := make(chan struct{})
+	go c.StartJanitor(stop)
+
+	_ = c.Set("key3", "value3", 5*time.Second)
+	_ = c.Set("key4", "value4", 8*time.Second)
+	_ = c.Set("key5", "value5", 3*time.Second)
+
+	fmt.Println("Added key3, key4, key5")
+
+	for i := 0; i < 4; i++ {
+		time.Sleep(3 * time.Second)
+		fmt.Println("---- Checking keys ----")
+		for _, k := range []string{"key3", "key4", "key5"} {
+			if val, err := c.Get(k); err != nil {
+				fmt.Printf("%s not found: %v\n", k, err)
+			} else {
+				fmt.Printf("%s -> %v\n", k, val)
+			}
+		}
+	}
+
+	// graceful shutdown
+	close(stop)
+	fmt.Println("Janitor stopped, program completed")
 }
